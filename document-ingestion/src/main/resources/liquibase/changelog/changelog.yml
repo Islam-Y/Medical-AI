@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - logicalFilePath: liquibase/changelog/changelog.yml
+
+  - preConditions:
+      - dbms:
+          type: postgresql
+
+  # 0.0.1
+  - include:
+      file: 0.0.1/changelog-0.0.1.yml
+      relativeToChangelogFile: true
