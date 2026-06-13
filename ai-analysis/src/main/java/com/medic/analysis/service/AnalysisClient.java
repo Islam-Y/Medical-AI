@@ -1,6 +1,6 @@
-package com.medic.document.service;
+package com.medic.analysis.service;
 
-import com.medic.document.dto.AnalysisResult;
+import com.medic.analysis.dto.AnalysisResult;
 
 import java.nio.file.Path;
 import java.util.UUID;

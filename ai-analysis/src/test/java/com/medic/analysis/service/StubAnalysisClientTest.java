@@ -1,4 +1,4 @@
-package com.medic.document.service;
+package com.medic.analysis.service;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +15,7 @@ class StubAnalysisClientTest {
         StubAnalysisClient client = new StubAnalysisClient();
 
         // Act
-        var result = client.analyze(UUID.randomUUID(), Path.of("/tmp/document.pdf"), "application/pdf");
+        var result = client.analyze(UUID.randomUUID(), Path.of("/tmp/labs.pdf"), "application/pdf");
 
         // Assert
         assertThat(result.observations()).isEmpty();

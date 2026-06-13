@@ -7,6 +7,7 @@ public final class EventTypes {
     public static final String DOCUMENT_UPLOADED = "DocumentUploaded";
     public static final String DOCUMENT_EXTRACTION_COMPLETED = "DocumentExtractionCompleted";
     public static final String HEALTH_RECORD_CHANGED = "HealthRecordChanged";
+    public static final String CHAT_MESSAGE_CREATED = "ChatMessageCreated";
     public static final String NOTIFICATION_CREATED = "NotificationCreated";
 
     private EventTypes() {

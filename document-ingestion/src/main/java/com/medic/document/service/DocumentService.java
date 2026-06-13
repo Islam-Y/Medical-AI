@@ -1,19 +1,19 @@
 package com.medic.document.service;
 
-import com.medic.document.dto.AnalysisResult;
 import com.medic.document.dto.DocumentResponse;
 import com.medic.document.entity.DocumentEntity;
 import com.medic.document.repository.DocumentRepository;
 import com.medic.events.EventEnvelope;
 import com.medic.events.EventTypes;
 import com.medic.events.TopicNames;
-import com.medic.events.document.DocumentExtractionCompletedEvent;
 import com.medic.events.document.DocumentUploadedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -27,7 +27,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final OutboxService outboxService;
-    private final AnalysisClient analysisClient;
+    private final ObjectMapper objectMapper;
 
     @Value("${storage.documents.path}")
     private Path storageRoot;
@@ -47,11 +47,7 @@ public class DocumentService {
                 target.toString()
         ));
         enqueueUploaded(document);
-        AnalysisResult result = analysisClient.analyze(document.getId(), target, document.getContentType());
-        document.markExtracted();
-        DocumentEntity extracted = documentRepository.save(document);
-        enqueueExtractionCompleted(extracted, result);
-        return toResponse(extracted);
+        return toResponse(document);
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +64,19 @@ public class DocumentService {
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
     }
 
+    @Transactional
+    public void handleDocumentEvent(String message) {
+        JsonNode root = readTree(message);
+        if (!EventTypes.DOCUMENT_EXTRACTION_COMPLETED.equals(root.path("eventType").asString())) {
+            return;
+        }
+        UUID documentId = UUID.fromString(root.path("payload").path("documentId").asString());
+        documentRepository.findById(documentId).ifPresent(document -> {
+            document.markExtracted();
+            documentRepository.save(document);
+        });
+    }
+
     private void enqueueUploaded(DocumentEntity document) {
         outboxService.enqueue(
                 TopicNames.DOCUMENT_EVENTS,
@@ -77,21 +86,12 @@ public class DocumentService {
                         EventTypes.DOCUMENT_UPLOADED,
                         UUID.randomUUID(),
                         document.getUserId(),
-                        new DocumentUploadedEvent(document.getId(), document.getOriginalFileName(), document.getContentType())
-                )
-        );
-    }
-
-    private void enqueueExtractionCompleted(DocumentEntity document, AnalysisResult result) {
-        outboxService.enqueue(
-                TopicNames.DOCUMENT_EVENTS,
-                EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
-                document.getId(),
-                EventEnvelope.create(
-                        EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
-                        UUID.randomUUID(),
-                        document.getUserId(),
-                        new DocumentExtractionCompletedEvent(document.getId(), document.getStatus().name(), result.observations())
+                        new DocumentUploadedEvent(
+                                document.getId(),
+                                document.getOriginalFileName(),
+                                document.getContentType(),
+                                document.getStoragePath()
+                        )
                 )
         );
     }
@@ -144,5 +144,13 @@ public class DocumentService {
 
     private String sanitize(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private JsonNode readTree(String message) {
+        try {
+            return objectMapper.readTree(message);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Invalid event payload", exception);
+        }
     }
 }

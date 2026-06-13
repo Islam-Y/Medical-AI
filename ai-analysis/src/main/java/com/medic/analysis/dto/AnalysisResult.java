@@ -1,4 +1,4 @@
-package com.medic.document.dto;
+package com.medic.analysis.dto;
 
 import com.medic.events.document.ExtractedObservation;
 
