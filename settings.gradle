@@ -1,0 +1,8 @@
+rootProject.name = 'medical-ai'
+
+include 'event-contracts'
+include 'auth'
+include 'user'
+include 'health-record'
+include 'document-ingestion'
+include 'notification'

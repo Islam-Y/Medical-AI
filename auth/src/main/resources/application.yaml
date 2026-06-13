@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: auth
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/medic_auth}
+    username: ${AUTH_DB_USERNAME:medic}
+    password: ${AUTH_DB_PASSWORD:medic}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:liquibase/changelog/changelog.yml
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${AUTH_PORT:8081}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-to-at-least-32-bytes}
+    ttl-seconds: ${JWT_TTL_SECONDS:3600}
+
+outbox:
+  publisher:
+    fixed-delay-ms: ${OUTBOX_FIXED_DELAY_MS:5000}

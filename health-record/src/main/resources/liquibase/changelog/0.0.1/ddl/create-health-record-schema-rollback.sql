@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS outbox_events;
+DROP TABLE IF EXISTS diagnoses;
+DROP TABLE IF EXISTS symptoms;
+DROP TABLE IF EXISTS observations;

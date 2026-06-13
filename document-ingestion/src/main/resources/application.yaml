@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: document-ingestion
+  datasource:
+    url: ${DOCUMENT_INGESTION_DB_URL:jdbc:postgresql://localhost:5432/medic_document_ingestion}
+    username: ${DOCUMENT_INGESTION_DB_USERNAME:medic}
+    password: ${DOCUMENT_INGESTION_DB_PASSWORD:medic}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:liquibase/changelog/changelog.yml
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  servlet:
+    multipart:
+      max-file-size: ${DOCUMENT_MAX_FILE_SIZE:20MB}
+      max-request-size: ${DOCUMENT_MAX_REQUEST_SIZE:25MB}
+
+server:
+  port: ${DOCUMENT_INGESTION_PORT:8084}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-to-at-least-32-bytes}
+
+storage:
+  documents:
+    path: ${DOCUMENT_STORAGE_PATH:${java.io.tmpdir}/medical-ai/documents}
+
+outbox:
+  publisher:
+    fixed-delay-ms: ${OUTBOX_FIXED_DELAY_MS:5000}

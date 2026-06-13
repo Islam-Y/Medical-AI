@@ -1,0 +1,36 @@
+.DS_Store
+
+### Gradle ###
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+### Java ###
+*.class
+out/
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+
+### VS Code ###
+.vscode/
+
+### Local config and secrets ###
+.env
+.env.*
+!.env.example
+
+### Logs and reports ###
+*.log
+**/jacoco.exec
+**/reports/
+
+### Local assistant metadata ###
+.codex/
+.agents/
+notes/
+memory.md
