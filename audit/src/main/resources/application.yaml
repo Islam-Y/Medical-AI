@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: audit
+  datasource:
+    url: ${AUDIT_DB_URL:jdbc:postgresql://localhost:5432/medic_audit}
+    username: ${AUDIT_DB_USERNAME:medic}
+    password: ${AUDIT_DB_PASSWORD:medic}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:liquibase/changelog/changelog.yml
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${AUDIT_PORT:8092}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-to-at-least-32-bytes}

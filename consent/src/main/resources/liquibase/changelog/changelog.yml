@@ -1,0 +1,6 @@
+databaseChangeLog:
+  - logicalFilePath: liquibase/changelog/changelog.yml
+
+  - include:
+      file: 0.0.1/changelog-0.0.1.yml
+      relativeToChangelogFile: true

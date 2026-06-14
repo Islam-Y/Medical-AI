@@ -11,6 +11,11 @@ ext {
             project(':document-ingestion'),
             project(':ai-analysis'),
             project(':chat'),
+            project(':retrieval'),
+            project(':indexing'),
+            project(':evaluation'),
+            project(':consent'),
+            project(':audit'),
             project(':notification')
     ]
 }
