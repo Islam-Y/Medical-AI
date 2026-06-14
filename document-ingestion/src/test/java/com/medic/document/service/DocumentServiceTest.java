@@ -1,21 +1,21 @@
 package com.medic.document.service;
 
-import com.medic.document.dto.AnalysisResult;
 import com.medic.document.dto.DocumentResponse;
 import com.medic.document.entity.DocumentEntity;
 import com.medic.document.entity.DocumentStatus;
 import com.medic.document.repository.DocumentRepository;
-import com.medic.events.document.ExtractedObservation;
+import com.medic.events.EventEnvelope;
+import com.medic.events.EventTypes;
+import com.medic.events.document.DocumentExtractionCompletedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import tools.jackson.databind.ObjectMapper;
 
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,7 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +31,6 @@ class DocumentServiceTest {
 
     private final DocumentRepository documentRepository = mock(DocumentRepository.class);
     private final OutboxService outboxService = mock(OutboxService.class);
-    private final AnalysisClient analysisClient = mock(AnalysisClient.class);
     private DocumentService service;
 
     @TempDir
@@ -40,27 +38,45 @@ class DocumentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, outboxService, analysisClient);
+        service = new DocumentService(documentRepository, outboxService, new ObjectMapper());
         ReflectionTestUtils.setField(service, "storageRoot", tempDir);
     }
 
     @Test
-    void uploadStoresFileRunsAnalysisAndPublishesEvents() throws Exception {
+    void uploadStoresFileAndPublishesUploadedEvent() throws Exception {
         // Arrange
         UUID userId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile("file", "labs.pdf", "application/pdf", "content".getBytes());
-        ExtractedObservation observation = new ExtractedObservation("Ferritin", BigDecimal.TEN, "ng/mL", "30-300", Instant.now());
         when(documentRepository.save(any(DocumentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(analysisClient.analyze(any(), any(), any())).thenReturn(new AnalysisResult(List.of(observation)));
 
         // Act
         DocumentResponse response = service.upload(userId, file);
 
         // Assert
-        assertThat(response.status()).isEqualTo(DocumentStatus.EXTRACTED);
+        assertThat(response.status()).isEqualTo(DocumentStatus.UPLOADED);
         assertThat(Files.list(tempDir.resolve(userId.toString())).count()).isEqualTo(1);
-        verify(outboxService, times(2)).enqueue(any(), any(), any(), any());
-        verify(analysisClient).analyze(any(), any(), any());
+        verify(outboxService).enqueue(any(), any(), any(), any());
+    }
+
+    @Test
+    void handleDocumentEventMarksDocumentExtracted() throws Exception {
+        // Arrange
+        UUID userId = UUID.randomUUID();
+        DocumentEntity document = new DocumentEntity(userId, "labs.pdf", "application/pdf", 10, "/tmp/labs.pdf");
+        String message = new ObjectMapper().writeValueAsString(EventEnvelope.create(
+                EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
+                UUID.randomUUID(),
+                userId,
+                new DocumentExtractionCompletedEvent(document.getId(), DocumentStatus.EXTRACTED.name(), List.of())
+        ));
+        when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
+
+        // Act
+        service.handleDocumentEvent(message);
+
+        // Assert
+        assertThat(document.getStatus()).isEqualTo(DocumentStatus.EXTRACTED);
+        verify(documentRepository).save(document);
     }
 
     @Test

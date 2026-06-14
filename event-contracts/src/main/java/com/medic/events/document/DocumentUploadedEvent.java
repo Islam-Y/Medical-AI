@@ -5,6 +5,7 @@ import java.util.UUID;
 public record DocumentUploadedEvent(
         UUID documentId,
         String fileName,
-        String contentType
+        String contentType,
+        String storagePath
 ) {
 }

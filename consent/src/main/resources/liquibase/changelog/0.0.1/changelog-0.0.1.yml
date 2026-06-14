@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - logicalFilePath: liquibase/changelog/0.0.1/changelog-0.0.1.yml
+
+  - changeSet:
+      id: create-consent-schema
+      author: 0.0.1
+      changes:
+        - sqlFile:
+            path: ddl/create-consent-schema.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+      rollback:
+        - sqlFile:
+            path: ddl/create-consent-schema-rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

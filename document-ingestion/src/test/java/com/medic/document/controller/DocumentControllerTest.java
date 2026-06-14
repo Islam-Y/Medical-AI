@@ -27,7 +27,7 @@ class DocumentControllerTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile("file", "labs.pdf", "application/pdf", "content".getBytes());
-        DocumentResponse expected = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, DocumentStatus.EXTRACTED, Instant.now());
+        DocumentResponse expected = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, DocumentStatus.UPLOADED, Instant.now());
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(documentService.upload(userId, file)).thenReturn(expected);
 
