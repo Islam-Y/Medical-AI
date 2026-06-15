@@ -26,18 +26,20 @@ class IndexingServiceTest {
 
     private final IndexEntryRepository repository = mock(IndexEntryRepository.class);
     private final IndexBuilder indexBuilder = new StubIndexBuilder();
+    private final ObjectStorageClient objectStorageClient = mock(ObjectStorageClient.class);
+    private final SearchIndexClient searchIndexClient = mock(SearchIndexClient.class);
     private IndexingService service;
 
     @BeforeEach
     void setUp() {
-        service = new IndexingService(repository, indexBuilder, new ObjectMapper());
+        service = new IndexingService(repository, indexBuilder, new ObjectMapper(), objectStorageClient, searchIndexClient);
     }
 
     @Test
     void upsertCreatesEntryWithSparseTerms() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", UUID.randomUUID(), "Ferritin", "Ferritin ferritin 10");
+        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", UUID.randomUUID(), null, null, null, null, null, "Ferritin", "Ferritin ferritin 10");
         when(repository.findByUserIdAndSourceTypeAndSourceId(userId, request.sourceType(), request.sourceId())).thenReturn(Optional.empty());
         when(repository.save(any(IndexEntryEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -47,6 +49,7 @@ class IndexingServiceTest {
         // Assert
         assertThat(response.sparseTerms()).isEqualTo("10 ferritin");
         verify(repository).save(any(IndexEntryEntity.class));
+        verify(searchIndexClient).index(any(IndexDocument.class));
     }
 
     @Test
@@ -55,7 +58,7 @@ class IndexingServiceTest {
         UUID userId = UUID.randomUUID();
         UUID sourceId = UUID.randomUUID();
         IndexEntryEntity existing = new IndexEntryEntity(userId, "OBSERVATION", sourceId, "Old", "old", "old");
-        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", sourceId, "New", "Vitamin D low");
+        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", sourceId, null, null, null, null, null, "New", "Vitamin D low");
         when(repository.findByUserIdAndSourceTypeAndSourceId(userId, request.sourceType(), request.sourceId())).thenReturn(Optional.of(existing));
         when(repository.save(existing)).thenReturn(existing);
 
@@ -117,8 +120,19 @@ class IndexingServiceTest {
                 EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
                 UUID.randomUUID(),
                 userId,
-                new DocumentExtractionCompletedEvent(documentId, "COMPLETED", List.of())
+                new DocumentExtractionCompletedEvent(
+                        documentId,
+                        UUID.randomUUID(),
+                        "COMPLETED",
+                        "medical-ai-extractions",
+                        "artifact.md",
+                        "text/markdown",
+                        "stub-analysis",
+                        "0.0.1",
+                        List.of()
+                )
         ));
+        when(objectStorageClient.readText("medical-ai-extractions", "artifact.md")).thenReturn("Vitamin D 18 ng/ml");
         when(repository.findByUserIdAndSourceTypeAndSourceId(any(), any(), any())).thenReturn(Optional.empty());
         when(repository.save(any(IndexEntryEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -127,5 +141,7 @@ class IndexingServiceTest {
 
         // Assert
         verify(repository).save(any(IndexEntryEntity.class));
+        verify(objectStorageClient).readText("medical-ai-extractions", "artifact.md");
+        verify(searchIndexClient).index(any(IndexDocument.class));
     }
 }

@@ -27,7 +27,18 @@ class RetrievalServiceTest {
         RetrievalService service = new RetrievalService(repository, client);
         UUID userId = UUID.randomUUID();
         RetrievalSearchRequest request = new RetrievalSearchRequest("vitamin d", RetrievalMode.SPARSE_NEURAL, 3);
-        RetrievalResultResponse result = new RetrievalResultResponse(UUID.randomUUID(), "OBSERVATION", "Vitamin D", "22 ng/mL", BigDecimal.ONE);
+        RetrievalResultResponse result = new RetrievalResultResponse(
+                UUID.randomUUID(),
+                "OBSERVATION",
+                "Vitamin D",
+                "22 ng/mL",
+                BigDecimal.ONE,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
         when(client.search(userId, request)).thenReturn(List.of(result));
         when(repository.save(any(RetrievalQueryEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

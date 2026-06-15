@@ -8,6 +8,11 @@ public record RetrievalResultResponse(
         String sourceType,
         String title,
         String snippet,
-        BigDecimal score
+        BigDecimal score,
+        UUID documentId,
+        UUID extractionId,
+        UUID chunkId,
+        String artifactUri,
+        Integer pageNumber
 ) {
 }

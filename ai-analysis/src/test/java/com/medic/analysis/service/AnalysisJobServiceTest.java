@@ -1,5 +1,6 @@
 package com.medic.analysis.service;
 
+import com.medic.analysis.config.ObjectStorageProperties;
 import com.medic.analysis.dto.AnalysisResult;
 import com.medic.analysis.dto.AnalysisJobResponse;
 import com.medic.analysis.entity.AnalysisJobEntity;
@@ -13,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.file.Path;
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,18 +33,26 @@ class AnalysisJobServiceTest {
     private final AnalysisJobRepository analysisJobRepository = mock(AnalysisJobRepository.class);
     private final AnalysisClient analysisClient = mock(AnalysisClient.class);
     private final OutboxService outboxService = mock(OutboxService.class);
+    private final ObjectStorageClient objectStorageClient = mock(ObjectStorageClient.class);
     private AnalysisJobService service;
 
     @BeforeEach
     void setUp() {
-        service = new AnalysisJobService(analysisJobRepository, analysisClient, outboxService, new ObjectMapper());
+        service = new AnalysisJobService(
+                analysisJobRepository,
+                analysisClient,
+                outboxService,
+                new ObjectMapper(),
+                objectStorageClient,
+                new ObjectStorageProperties()
+        );
     }
 
     @Test
     void jobsMapsStoredJobs() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        AnalysisJobEntity job = new AnalysisJobEntity(UUID.randomUUID(), userId, "labs.pdf", "application/pdf", "/tmp/labs.pdf");
+        AnalysisJobEntity job = new AnalysisJobEntity(UUID.randomUUID(), userId, "labs.pdf", "application/pdf", "medical-ai-documents", "documents/key");
         when(analysisJobRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(job));
 
         // Act
@@ -75,17 +84,28 @@ class AnalysisJobServiceTest {
                 EventTypes.DOCUMENT_UPLOADED,
                 UUID.randomUUID(),
                 userId,
-                new DocumentUploadedEvent(documentId, "labs.pdf", "application/pdf", "/tmp/labs.pdf")
+                new DocumentUploadedEvent(documentId, "labs.pdf", "application/pdf", 7, "medical-ai-documents", "documents/key", "abc")
         ));
         when(analysisJobRepository.existsByDocumentId(documentId)).thenReturn(false);
         when(analysisJobRepository.save(any(AnalysisJobEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(analysisClient.analyze(eq(documentId), eq(Path.of("/tmp/labs.pdf")), eq("application/pdf"))).thenReturn(AnalysisResult.empty());
+        when(objectStorageClient.get("medical-ai-documents", "documents/key"))
+                .thenReturn(new StoredObjectContent("medical-ai-documents", "documents/key", "application/pdf", 7, new ByteArrayInputStream("content".getBytes())));
+        when(objectStorageClient.put(any(), any(), any(), any(), any(Long.class)))
+                .thenAnswer(invocation -> new StoredObject(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2),
+                        invocation.<Long>getArgument(4),
+                        "abc"
+                ));
+        when(analysisClient.analyze(any(AnalysisInput.class))).thenReturn(new AnalysisResult("stub-analysis", "0.0.1", "# markdown", "{\"pages\":[]}", List.of()));
 
         // Act
         service.handleDocumentEvent(message);
 
         // Assert
-        verify(analysisClient).analyze(eq(documentId), eq(Path.of("/tmp/labs.pdf")), eq("application/pdf"));
+        verify(analysisClient).analyze(any(AnalysisInput.class));
+        verify(objectStorageClient).put(eq("medical-ai-extractions"), org.mockito.ArgumentMatchers.contains("content.md"), eq("text/markdown"), any(), any(Long.class));
         verify(outboxService).enqueue(eq(TopicNames.DOCUMENT_EVENTS), eq(EventTypes.DOCUMENT_EXTRACTION_COMPLETED), eq(documentId), any());
     }
 
@@ -104,7 +124,7 @@ class AnalysisJobServiceTest {
 
         // Assert
         verify(analysisJobRepository, never()).save(any());
-        verify(analysisClient, never()).analyze(any(), any(), any());
+        verify(analysisClient, never()).analyze(any());
     }
 
     @Test
@@ -116,7 +136,7 @@ class AnalysisJobServiceTest {
                 EventTypes.DOCUMENT_UPLOADED,
                 UUID.randomUUID(),
                 userId,
-                new DocumentUploadedEvent(documentId, "labs.pdf", "application/pdf", "/tmp/labs.pdf")
+                new DocumentUploadedEvent(documentId, "labs.pdf", "application/pdf", 7, "medical-ai-documents", "documents/key", "abc")
         ));
         when(analysisJobRepository.existsByDocumentId(documentId)).thenReturn(true);
 
@@ -125,6 +145,6 @@ class AnalysisJobServiceTest {
 
         // Assert
         verify(analysisJobRepository, never()).save(any());
-        verify(analysisClient, never()).analyze(any(), any(), any());
+        verify(analysisClient, never()).analyze(any());
     }
 }

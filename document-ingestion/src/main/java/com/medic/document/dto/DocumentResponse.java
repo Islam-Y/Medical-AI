@@ -10,6 +10,7 @@ public record DocumentResponse(
         String originalFileName,
         String contentType,
         long sizeBytes,
+        String checksumSha256,
         DocumentStatus status,
         Instant createdAt
 ) {

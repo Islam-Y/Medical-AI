@@ -1,6 +1,6 @@
 # Medical-AI
 
-Medical-AI - backend MVP персональной медицинской AI-платформы. Сервис хранит медицинскую историю пользователя, принимает документы и анализы, запускает AI-анализ, строит индекс для поиска по медицинскому контексту и предоставляет чатовый интерфейс, готовый к RAG.
+Medical-AI - backend MVP персональной медицинской AI-платформы. Сервис хранит медицинскую историю пользователя, принимает документы и анализы, запускает AI-анализ, строит исследовательский индекс для поиска по медицинскому контексту и предоставляет чатовый интерфейс, готовый к RAG.
 
 Проект задуман не как "AI-врач", а как персональная медицинская память и интеллектуальный навигатор: система помогает собрать контекст, увидеть динамику, подготовить вопросы врачу и в дальнейшем сравнивать алгоритмы нейросетевого информационного поиска на реальных сценариях медицинского retrieval.
 
@@ -18,7 +18,9 @@ Medical-AI - backend MVP персональной медицинской AI-пл
 - REST API для регистрации, логина, профиля, медицинских записей, документов, AI-задач, чата, поиска, индексации, evaluation, consent, audit и уведомлений.
 - Kafka choreography между сервисами без центрального orchestrator.
 - Transactional outbox для надежной публикации событий.
-- Postgres per service.
+- Postgres per service для metadata, users, health facts, consent, audit и service state.
+- S3-compatible object storage для оригинальных PDF/JPEG/PNG и canonical extraction artifacts.
+- OpenSearch как retrieval/index storage для chunks, BM25/sparse search и latency/throughput экспериментов.
 - Liquibase release-changelog layout, без Flyway.
 - JWT auth: `auth` выпускает HMAC JWT, остальные сервисы валидируют токен.
 - AI boundary: отдельный `ai-analysis` microservice со stub-адаптером, готовый к замене на OCR/VLM/LLM pipeline.
@@ -31,9 +33,14 @@ Medical-AI - backend MVP персональной медицинской AI-пл
 
 ```text
 document-ingestion
+  -> S3 original object + Postgres metadata
+  -> Kafka DocumentUploaded
   -> ai-analysis
-  -> health-record
-  -> indexing
+  -> S3 canonical Markdown/Layout JSON artifact + Postgres extraction metadata
+  -> Kafka DocumentExtractionCompleted
+  -> health-record normalized facts
+  -> indexing chunks/provenance/sparse terms
+  -> OpenSearch
   -> retrieval
   -> chat
 ```
@@ -50,6 +57,26 @@ auth/user/document/health/chat/analysis/retrieval/indexing/evaluation/consent/au
 
 Каждый сервис владеет своей БД и не ходит напрямую в таблицы другого сервиса. Связь между доменами идет через REST API для синхронных запросов и Kafka events для асинхронной хореографии.
 
+Storage split:
+
+```text
+MinIO/S3:
+- original files: PDF, JPEG, PNG, scans
+- derived artifacts: canonical Markdown, layout JSON, extracted tables
+
+Postgres:
+- document metadata
+- extraction metadata
+- normalized medical facts
+- consent/audit/state
+
+OpenSearch:
+- searchable chunks
+- sparse terms
+- BM25/search index
+- source provenance for retrieval results
+```
+
 ## Модули
 
 | Module | Responsibility |
@@ -58,11 +85,11 @@ auth/user/document/health/chat/analysis/retrieval/indexing/evaluation/consent/au
 | `auth` | Регистрация, логин, выпуск JWT, `/api/v1/auth/me`. |
 | `user` | Профиль пользователя и персональные параметры. |
 | `health-record` | Наблюдения, симптомы, диагнозы, timeline. |
-| `document-ingestion` | Загрузка документов и локальное файловое хранилище для MVP. |
-| `ai-analysis` | AI analysis jobs, stub adapter под будущий OCR/VLM/LLM pipeline. |
+| `document-ingestion` | Загрузка документов, S3 object reference, checksum, document metadata. |
+| `ai-analysis` | AI analysis jobs, canonical Markdown/Layout JSON artifacts, stub adapter под будущий OCR/VLM/LLM pipeline. |
 | `chat` | Медицинские чат-сессии и сообщения, LLM-ready adapter boundary. |
-| `retrieval` | Search API для BM25, sparse neural, dense и hybrid retrieval экспериментов. |
-| `indexing` | Индексные записи и sparse representation boundary по событиям документов, health-record и chat. |
+| `retrieval` | Search API для BM25, sparse neural, dense и hybrid retrieval экспериментов поверх OpenSearch-compatible boundary. |
+| `indexing` | Чтение extraction artifacts, chunks, sparse representation и запись в OpenSearch-compatible index. |
 | `evaluation` | Benchmark runs и метрики качества/latency/throughput/index size. |
 | `consent` | Согласия пользователя на AI-анализ, research evaluation, doctor access и export. |
 | `audit` | Аудит действий и доступов как база для коммерческой безопасности. |
@@ -127,6 +154,10 @@ docker compose up -d
 | --- | --- |
 | Postgres | `5432` |
 | Kafka | `9092` |
+| MinIO S3 API | `9000` |
+| MinIO Console | `9001` |
+| OpenSearch | `9200` |
+| OpenSearch Performance Analyzer | `9600` |
 | Auth | `8081` |
 | User | `8082` |
 | Health record | `8083` |
@@ -141,6 +172,15 @@ docker compose up -d
 | Audit | `8092` |
 
 Postgres credentials для local dev: `medic` / `medic`.
+
+MinIO credentials для local dev: `medicadmin` / `medicadmin123`.
+
+Default buckets:
+
+- `medical-ai-documents` для оригиналов;
+- `medical-ai-extractions` для canonical artifacts.
+
+Default OpenSearch index: `medical-ai-chunks`.
 
 ## Database migrations
 

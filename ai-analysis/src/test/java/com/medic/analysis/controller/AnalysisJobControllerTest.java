@@ -25,7 +25,18 @@ class AnalysisJobControllerTest {
     void jobsUsesAuthenticatedUser() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        AnalysisJobResponse expected = new AnalysisJobResponse(UUID.randomUUID(), UUID.randomUUID(), "labs.pdf", "application/pdf", AnalysisJobStatus.COMPLETED, Instant.now(), Instant.now());
+        AnalysisJobResponse expected = new AnalysisJobResponse(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "labs.pdf",
+                "application/pdf",
+                AnalysisJobStatus.COMPLETED,
+                "stub-analysis",
+                "0.0.1",
+                "s3://medical-ai-extractions/artifact.md",
+                Instant.now(),
+                Instant.now()
+        );
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(analysisJobService.jobs(userId)).thenReturn(List.of(expected));
 
@@ -42,7 +53,18 @@ class AnalysisJobControllerTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
-        AnalysisJobResponse expected = new AnalysisJobResponse(jobId, UUID.randomUUID(), "labs.pdf", "application/pdf", AnalysisJobStatus.PENDING, Instant.now(), null);
+        AnalysisJobResponse expected = new AnalysisJobResponse(
+                jobId,
+                UUID.randomUUID(),
+                "labs.pdf",
+                "application/pdf",
+                AnalysisJobStatus.PENDING,
+                null,
+                null,
+                null,
+                Instant.now(),
+                null
+        );
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(analysisJobService.job(userId, jobId)).thenReturn(expected);
 

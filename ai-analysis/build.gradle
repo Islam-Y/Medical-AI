@@ -1,1 +1,5 @@
 description = 'AI analysis service'
+
+dependencies {
+    implementation 'software.amazon.awssdk:s3'
+}

@@ -31,6 +31,20 @@ public class IndexEntryEntity {
     @Column(nullable = false)
     private UUID sourceId;
 
+    @Column(nullable = false, unique = true)
+    private UUID chunkId;
+
+    private UUID documentId;
+
+    private UUID extractionId;
+
+    private String artifactBucket;
+
+    @Column(columnDefinition = "text")
+    private String artifactKey;
+
+    private Integer pageNumber;
+
     @Column(nullable = false)
     private String title;
 
@@ -47,10 +61,32 @@ public class IndexEntryEntity {
     private Instant updatedAt;
 
     public IndexEntryEntity(UUID userId, String sourceType, UUID sourceId, String title, String content, String sparseTerms) {
+        this(userId, sourceType, sourceId, null, null, null, null, null, title, content, sparseTerms);
+    }
+
+    public IndexEntryEntity(
+            UUID userId,
+            String sourceType,
+            UUID sourceId,
+            UUID documentId,
+            UUID extractionId,
+            String artifactBucket,
+            String artifactKey,
+            Integer pageNumber,
+            String title,
+            String content,
+            String sparseTerms
+    ) {
         this.id = UUID.randomUUID();
         this.userId = userId;
         this.sourceType = sourceType;
         this.sourceId = sourceId;
+        this.chunkId = UUID.randomUUID();
+        this.documentId = documentId;
+        this.extractionId = extractionId;
+        this.artifactBucket = artifactBucket;
+        this.artifactKey = artifactKey;
+        this.pageNumber = pageNumber;
         this.title = title;
         this.content = content;
         this.sparseTerms = sparseTerms;
@@ -60,6 +96,14 @@ public class IndexEntryEntity {
         this.title = title;
         this.content = content;
         this.sparseTerms = sparseTerms;
+    }
+
+    public void updateProvenance(UUID documentId, UUID extractionId, String artifactBucket, String artifactKey, Integer pageNumber) {
+        this.documentId = documentId;
+        this.extractionId = extractionId;
+        this.artifactBucket = artifactBucket;
+        this.artifactKey = artifactKey;
+        this.pageNumber = pageNumber;
     }
 
     @PrePersist

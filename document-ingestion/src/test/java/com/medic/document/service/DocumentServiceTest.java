@@ -1,5 +1,6 @@
 package com.medic.document.service;
 
+import com.medic.document.config.ObjectStorageProperties;
 import com.medic.document.dto.DocumentResponse;
 import com.medic.document.entity.DocumentEntity;
 import com.medic.document.entity.DocumentStatus;
@@ -9,13 +10,9 @@ import com.medic.events.EventTypes;
 import com.medic.events.document.DocumentExtractionCompletedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,15 +28,12 @@ class DocumentServiceTest {
 
     private final DocumentRepository documentRepository = mock(DocumentRepository.class);
     private final OutboxService outboxService = mock(OutboxService.class);
+    private final ObjectStorageClient objectStorageClient = mock(ObjectStorageClient.class);
     private DocumentService service;
-
-    @TempDir
-    private Path tempDir;
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, outboxService, new ObjectMapper());
-        ReflectionTestUtils.setField(service, "storageRoot", tempDir);
+        service = new DocumentService(documentRepository, outboxService, new ObjectMapper(), objectStorageClient, new ObjectStorageProperties());
     }
 
     @Test
@@ -47,6 +41,8 @@ class DocumentServiceTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile("file", "labs.pdf", "application/pdf", "content".getBytes());
+        when(objectStorageClient.put(any(), any(), any(), any(), any(Long.class)))
+                .thenReturn(new StoredObject("medical-ai-documents", "documents/key", "application/pdf", 7, "abc"));
         when(documentRepository.save(any(DocumentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
@@ -54,7 +50,8 @@ class DocumentServiceTest {
 
         // Assert
         assertThat(response.status()).isEqualTo(DocumentStatus.UPLOADED);
-        assertThat(Files.list(tempDir.resolve(userId.toString())).count()).isEqualTo(1);
+        assertThat(response.checksumSha256()).isEqualTo("abc");
+        verify(objectStorageClient).put(any(), any(), any(), any(), any(Long.class));
         verify(outboxService).enqueue(any(), any(), any(), any());
     }
 
@@ -62,12 +59,22 @@ class DocumentServiceTest {
     void handleDocumentEventMarksDocumentExtracted() throws Exception {
         // Arrange
         UUID userId = UUID.randomUUID();
-        DocumentEntity document = new DocumentEntity(userId, "labs.pdf", "application/pdf", 10, "/tmp/labs.pdf");
+        DocumentEntity document = document(userId);
         String message = new ObjectMapper().writeValueAsString(EventEnvelope.create(
                 EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
                 UUID.randomUUID(),
                 userId,
-                new DocumentExtractionCompletedEvent(document.getId(), DocumentStatus.EXTRACTED.name(), List.of())
+                new DocumentExtractionCompletedEvent(
+                        document.getId(),
+                        UUID.randomUUID(),
+                        DocumentStatus.EXTRACTED.name(),
+                        "medical-ai-extractions",
+                        "artifact.md",
+                        "text/markdown",
+                        "stub-analysis",
+                        "0.0.1",
+                        List.of()
+                )
         ));
         when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
 
@@ -94,7 +101,7 @@ class DocumentServiceTest {
     void documentReturnsDocumentOwnedByUser() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        DocumentEntity document = new DocumentEntity(userId, "labs.pdf", "application/pdf", 10, "/tmp/labs.pdf");
+        DocumentEntity document = document(userId);
         when(documentRepository.findByIdAndUserId(document.getId(), userId)).thenReturn(Optional.of(document));
 
         // Act
@@ -109,7 +116,7 @@ class DocumentServiceTest {
     void documentsReturnsUserDocuments() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        DocumentEntity document = new DocumentEntity(userId, "labs.pdf", "application/pdf", 10, "/tmp/labs.pdf");
+        DocumentEntity document = document(userId);
         when(documentRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(document));
 
         // Act
@@ -130,5 +137,9 @@ class DocumentServiceTest {
         // Assert
         assertThatThrownBy(() -> service.document(userId, documentId))
                 .isInstanceOf(DocumentNotFoundException.class);
+    }
+
+    private DocumentEntity document(UUID userId) {
+        return new DocumentEntity(userId, "labs.pdf", "application/pdf", 10, "medical-ai-documents", "documents/key", "abc");
     }
 }

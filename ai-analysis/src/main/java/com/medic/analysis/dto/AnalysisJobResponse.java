@@ -11,6 +11,9 @@ public record AnalysisJobResponse(
         String fileName,
         String contentType,
         AnalysisJobStatus status,
+        String modelName,
+        String modelVersion,
+        String artifactUri,
         Instant createdAt,
         Instant completedAt
 ) {

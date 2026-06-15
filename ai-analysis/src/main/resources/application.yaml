@@ -21,6 +21,16 @@ security:
   jwt:
     secret: ${JWT_SECRET:change-this-secret-to-at-least-32-bytes}
 
+object-storage:
+  endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+  region: ${OBJECT_STORAGE_REGION:us-east-1}
+  access-key: ${OBJECT_STORAGE_ACCESS_KEY:medicadmin}
+  secret-key: ${OBJECT_STORAGE_SECRET_KEY:medicadmin123}
+  path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+  buckets:
+    original-documents: ${OBJECT_STORAGE_ORIGINAL_DOCUMENTS_BUCKET:medical-ai-documents}
+    extracted-artifacts: ${OBJECT_STORAGE_EXTRACTED_ARTIFACTS_BUCKET:medical-ai-extractions}
+
 outbox:
   publisher:
     fixed-delay-ms: ${OUTBOX_FIXED_DELAY_MS:5000}

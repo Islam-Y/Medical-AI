@@ -1,5 +1,6 @@
 package com.medic.document.service;
 
+import com.medic.document.config.ObjectStorageProperties;
 import com.medic.document.dto.DocumentResponse;
 import com.medic.document.entity.DocumentEntity;
 import com.medic.document.repository.DocumentRepository;
@@ -8,16 +9,12 @@ import com.medic.events.EventTypes;
 import com.medic.events.TopicNames;
 import com.medic.events.document.DocumentUploadedEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,9 +25,8 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
-
-    @Value("${storage.documents.path}")
-    private Path storageRoot;
+    private final ObjectStorageClient objectStorageClient;
+    private final ObjectStorageProperties objectStorageProperties;
 
     @Transactional
     public DocumentResponse upload(UUID userId, MultipartFile file) {
@@ -38,13 +34,16 @@ public class DocumentService {
             throw new StorageException("Uploaded file is empty");
         }
         UUID documentId = UUID.randomUUID();
-        Path target = writeFile(userId, documentId, file);
+        StoredObject storedObject = storeOriginal(userId, documentId, file);
         DocumentEntity document = documentRepository.save(new DocumentEntity(
+                documentId,
                 userId,
                 originalFileName(file),
                 contentType(file),
                 file.getSize(),
-                target.toString()
+                storedObject.bucket(),
+                storedObject.key(),
+                storedObject.checksumSha256()
         ));
         enqueueUploaded(document);
         return toResponse(document);
@@ -90,24 +89,24 @@ public class DocumentService {
                                 document.getId(),
                                 document.getOriginalFileName(),
                                 document.getContentType(),
-                                document.getStoragePath()
+                                document.getSizeBytes(),
+                                document.getStorageBucket(),
+                                document.getStorageKey(),
+                                document.getChecksumSha256()
                         )
                 )
         );
     }
 
-    private Path writeFile(UUID userId, UUID documentId, MultipartFile file) {
+    private StoredObject storeOriginal(UUID userId, UUID documentId, MultipartFile file) {
         try {
-            Path userDirectory = storageRoot.resolve(userId.toString()).normalize();
-            Files.createDirectories(userDirectory);
-            Path target = userDirectory.resolve(documentId + "-" + sanitize(originalFileName(file))).normalize();
-            if (!target.startsWith(userDirectory)) {
-                throw new StorageException("Invalid file name");
-            }
-            try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, target);
-            }
-            return target;
+            return objectStorageClient.put(
+                    objectStorageProperties.getBuckets().getOriginalDocuments(),
+                    originalObjectKey(userId, documentId, originalFileName(file)),
+                    contentType(file),
+                    file.getInputStream(),
+                    file.getSize()
+            );
         } catch (StorageException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -121,6 +120,7 @@ public class DocumentService {
                 document.getOriginalFileName(),
                 document.getContentType(),
                 document.getSizeBytes(),
+                document.getChecksumSha256(),
                 document.getStatus(),
                 document.getCreatedAt()
         );
@@ -144,6 +144,10 @@ public class DocumentService {
 
     private String sanitize(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private String originalObjectKey(UUID userId, UUID documentId, String fileName) {
+        return "documents/%s/%s/original/%s".formatted(userId, documentId, sanitize(fileName));
     }
 
     private JsonNode readTree(String message) {

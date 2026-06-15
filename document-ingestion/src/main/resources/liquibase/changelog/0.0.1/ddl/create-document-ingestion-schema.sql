@@ -4,7 +4,9 @@ CREATE TABLE documents (
     original_file_name VARCHAR(512) NOT NULL,
     content_type VARCHAR(255) NOT NULL,
     size_bytes BIGINT NOT NULL,
-    storage_path TEXT NOT NULL,
+    storage_bucket VARCHAR(255) NOT NULL,
+    storage_key TEXT NOT NULL,
+    checksum_sha256 VARCHAR(64) NOT NULL,
     status VARCHAR(32) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL

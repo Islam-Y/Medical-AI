@@ -1,14 +1,13 @@
-package com.medic.events.document;
+package com.medic.analysis.service;
 
 import java.util.UUID;
 
-public record DocumentUploadedEvent(
+public record AnalysisInput(
         UUID documentId,
         String fileName,
         String contentType,
-        long sizeBytes,
         String storageBucket,
         String storageKey,
-        String checksumSha256
+        StoredObjectContent originalObject
 ) {
 }

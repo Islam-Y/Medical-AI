@@ -1,5 +1,6 @@
 package com.medic.indexing.service;
 
+import com.medic.events.EventTypes;
 import com.medic.indexing.dto.IndexEntryResponse;
 import com.medic.indexing.dto.UpsertIndexEntryRequest;
 import com.medic.indexing.entity.IndexEntryEntity;
@@ -20,6 +21,8 @@ public class IndexingService {
     private final IndexEntryRepository indexEntryRepository;
     private final IndexBuilder indexBuilder;
     private final ObjectMapper objectMapper;
+    private final ObjectStorageClient objectStorageClient;
+    private final SearchIndexClient searchIndexClient;
 
     @Transactional
     public IndexEntryResponse upsert(UUID userId, UpsertIndexEntryRequest request) {
@@ -27,10 +30,31 @@ public class IndexingService {
         IndexEntryEntity entry = indexEntryRepository.findByUserIdAndSourceTypeAndSourceId(userId, request.sourceType(), request.sourceId())
                 .map(existing -> {
                     existing.update(request.title(), request.content(), sparseTerms);
+                    existing.updateProvenance(
+                            request.documentId(),
+                            request.extractionId(),
+                            request.artifactBucket(),
+                            request.artifactKey(),
+                            request.pageNumber()
+                    );
                     return existing;
                 })
-                .orElseGet(() -> new IndexEntryEntity(userId, request.sourceType(), request.sourceId(), request.title(), request.content(), sparseTerms));
-        return toResponse(indexEntryRepository.save(entry));
+                .orElseGet(() -> new IndexEntryEntity(
+                        userId,
+                        request.sourceType(),
+                        request.sourceId(),
+                        request.documentId(),
+                        request.extractionId(),
+                        request.artifactBucket(),
+                        request.artifactKey(),
+                        request.pageNumber(),
+                        request.title(),
+                        request.content(),
+                        sparseTerms
+                ));
+        IndexEntryEntity saved = indexEntryRepository.save(entry);
+        searchIndexClient.index(toIndexDocument(saved));
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -52,12 +76,63 @@ public class IndexingService {
         JsonNode root = readTree(message);
         String eventType = root.path("eventType").asString();
         UUID userId = UUID.fromString(root.path("userId").asString());
-        UUID sourceId = UUID.fromString(root.path("payload").path("documentId").asString(root.path("payload").path("messageId").asString(root.path("eventId").asString())));
-        upsert(userId, new UpsertIndexEntryRequest(eventType, sourceId, eventType, root.path("payload").toString()));
+        JsonNode payload = root.path("payload");
+        UUID sourceId = UUID.fromString(payload.path("documentId").asString(payload.path("messageId").asString(root.path("eventId").asString())));
+        if (EventTypes.DOCUMENT_EXTRACTION_COMPLETED.equals(eventType) && !payload.path("artifactBucket").isMissingNode()) {
+            upsert(userId, new UpsertIndexEntryRequest(
+                    eventType,
+                    sourceId,
+                    sourceId,
+                    UUID.fromString(payload.path("extractionId").asString()),
+                    payload.path("artifactBucket").asString(),
+                    payload.path("artifactKey").asString(),
+                    1,
+                    "Canonical extraction " + sourceId,
+                    objectStorageClient.readText(payload.path("artifactBucket").asString(), payload.path("artifactKey").asString())
+            ));
+            return;
+        }
+        upsert(userId, new UpsertIndexEntryRequest(eventType, sourceId, null, null, null, null, null, eventType, payload.toString()));
     }
 
     private IndexEntryResponse toResponse(IndexEntryEntity entry) {
-        return new IndexEntryResponse(entry.getId(), entry.getSourceType(), entry.getSourceId(), entry.getTitle(), entry.getSparseTerms(), entry.getUpdatedAt());
+        return new IndexEntryResponse(
+                entry.getId(),
+                entry.getChunkId(),
+                entry.getSourceType(),
+                entry.getSourceId(),
+                entry.getDocumentId(),
+                entry.getExtractionId(),
+                entry.getTitle(),
+                entry.getSparseTerms(),
+                artifactUri(entry),
+                entry.getPageNumber(),
+                entry.getUpdatedAt()
+        );
+    }
+
+    private IndexDocument toIndexDocument(IndexEntryEntity entry) {
+        return new IndexDocument(
+                entry.getChunkId(),
+                entry.getUserId(),
+                entry.getSourceType(),
+                entry.getSourceId(),
+                entry.getDocumentId(),
+                entry.getExtractionId(),
+                entry.getTitle(),
+                entry.getContent(),
+                entry.getSparseTerms(),
+                artifactUri(entry),
+                entry.getPageNumber(),
+                entry.getUpdatedAt()
+        );
+    }
+
+    private String artifactUri(IndexEntryEntity entry) {
+        if (entry.getArtifactBucket() == null || entry.getArtifactKey() == null) {
+            return null;
+        }
+        return "s3://" + entry.getArtifactBucket() + "/" + entry.getArtifactKey();
     }
 
     private JsonNode readTree(String message) {

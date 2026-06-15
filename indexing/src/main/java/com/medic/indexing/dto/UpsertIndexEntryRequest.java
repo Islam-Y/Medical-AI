@@ -8,6 +8,11 @@ import java.util.UUID;
 public record UpsertIndexEntryRequest(
         @NotBlank String sourceType,
         @NotNull UUID sourceId,
+        UUID documentId,
+        UUID extractionId,
+        String artifactBucket,
+        String artifactKey,
+        Integer pageNumber,
         @NotBlank String title,
         @NotBlank String content
 ) {

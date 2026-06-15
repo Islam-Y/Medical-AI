@@ -78,7 +78,17 @@ class HealthRecordServiceTest {
                 EventTypes.DOCUMENT_EXTRACTION_COMPLETED,
                 UUID.randomUUID(),
                 userId,
-                new DocumentExtractionCompletedEvent(documentId, "EXTRACTED", List.of(extracted))
+                new DocumentExtractionCompletedEvent(
+                        documentId,
+                        UUID.randomUUID(),
+                        "EXTRACTED",
+                        "medical-ai-extractions",
+                        "artifact.md",
+                        "text/markdown",
+                        "stub-analysis",
+                        "0.0.1",
+                        List.of(extracted)
+                )
         ));
         when(observationRepository.save(any(ObservationEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

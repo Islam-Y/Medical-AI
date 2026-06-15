@@ -4,6 +4,7 @@ plugins {
 }
 
 ext {
+    awsSdkVersion = '2.46.10'
     springServiceProjects = [
             project(':auth'),
             project(':user'),
@@ -55,6 +56,9 @@ subprojects {
             '**/entity/**',
             '**/event/**',
             '**/repository/**',
+            '**/*ObjectStorageClient.class',
+            '**/*OpenSearch*Client.class',
+            '**/*NoOpSearchIndexClient.class',
             '**/OutboxPublisher.class'
     ]
 
@@ -101,6 +105,12 @@ subprojects {
 configure(springServiceProjects) {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
+
+    dependencyManagement {
+        imports {
+            mavenBom "software.amazon.awssdk:bom:${awsSdkVersion}"
+        }
+    }
 
     dependencies {
         implementation project(':event-contracts')

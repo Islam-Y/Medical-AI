@@ -25,8 +25,20 @@ class IndexingControllerTest {
     void upsertUsesAuthenticatedUser() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", UUID.randomUUID(), "Ferritin", "Ferritin 10");
-        IndexEntryResponse expected = new IndexEntryResponse(UUID.randomUUID(), request.sourceType(), request.sourceId(), request.title(), "10 ferritin", Instant.now());
+        UpsertIndexEntryRequest request = new UpsertIndexEntryRequest("OBSERVATION", UUID.randomUUID(), null, null, null, null, null, "Ferritin", "Ferritin 10");
+        IndexEntryResponse expected = new IndexEntryResponse(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                request.sourceType(),
+                request.sourceId(),
+                null,
+                null,
+                request.title(),
+                "10 ferritin",
+                null,
+                null,
+                Instant.now()
+        );
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(indexingService.upsert(userId, request)).thenReturn(expected);
 
@@ -42,7 +54,19 @@ class IndexingControllerTest {
     void entriesUseAuthenticatedUser() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        IndexEntryResponse expected = new IndexEntryResponse(UUID.randomUUID(), "DOC", UUID.randomUUID(), "Doc", "doc", Instant.now());
+        IndexEntryResponse expected = new IndexEntryResponse(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "DOC",
+                UUID.randomUUID(),
+                null,
+                null,
+                "Doc",
+                "doc",
+                null,
+                null,
+                Instant.now()
+        );
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(indexingService.entries(userId)).thenReturn(List.of(expected));
 
@@ -59,7 +83,19 @@ class IndexingControllerTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         UUID entryId = UUID.randomUUID();
-        IndexEntryResponse expected = new IndexEntryResponse(entryId, "DOC", UUID.randomUUID(), "Doc", "doc", Instant.now());
+        IndexEntryResponse expected = new IndexEntryResponse(
+                entryId,
+                UUID.randomUUID(),
+                "DOC",
+                UUID.randomUUID(),
+                null,
+                null,
+                "Doc",
+                "doc",
+                null,
+                null,
+                Instant.now()
+        );
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(indexingService.entry(userId, entryId)).thenReturn(expected);
 

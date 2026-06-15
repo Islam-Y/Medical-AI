@@ -27,7 +27,7 @@ class DocumentControllerTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile("file", "labs.pdf", "application/pdf", "content".getBytes());
-        DocumentResponse expected = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, DocumentStatus.UPLOADED, Instant.now());
+        DocumentResponse expected = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, "abc", DocumentStatus.UPLOADED, Instant.now());
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(documentService.upload(userId, file)).thenReturn(expected);
 
@@ -43,7 +43,7 @@ class DocumentControllerTest {
     void listUsesAuthenticatedUser() {
         // Arrange
         UUID userId = UUID.randomUUID();
-        DocumentResponse document = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, DocumentStatus.EXTRACTED, Instant.now());
+        DocumentResponse document = new DocumentResponse(UUID.randomUUID(), "labs.pdf", "application/pdf", 7, "abc", DocumentStatus.EXTRACTED, Instant.now());
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(documentService.documents(userId)).thenReturn(List.of(document));
 
@@ -60,7 +60,7 @@ class DocumentControllerTest {
         // Arrange
         UUID userId = UUID.randomUUID();
         UUID documentId = UUID.randomUUID();
-        DocumentResponse document = new DocumentResponse(documentId, "labs.pdf", "application/pdf", 7, DocumentStatus.EXTRACTED, Instant.now());
+        DocumentResponse document = new DocumentResponse(documentId, "labs.pdf", "application/pdf", 7, "abc", DocumentStatus.EXTRACTED, Instant.now());
         when(jwtService.parseBearerUserId("Bearer token")).thenReturn(userId);
         when(documentService.document(userId, documentId)).thenReturn(document);
 

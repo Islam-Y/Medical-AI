@@ -37,7 +37,13 @@ public class DocumentEntity {
     private long sizeBytes;
 
     @Column(nullable = false)
-    private String storagePath;
+    private String storageBucket;
+
+    @Column(nullable = false, columnDefinition = "text")
+    private String storageKey;
+
+    @Column(nullable = false, length = 64)
+    private String checksumSha256;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -49,13 +55,36 @@ public class DocumentEntity {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    public DocumentEntity(UUID userId, String originalFileName, String contentType, long sizeBytes, String storagePath) {
-        this.id = UUID.randomUUID();
+    public DocumentEntity(
+            UUID userId,
+            String originalFileName,
+            String contentType,
+            long sizeBytes,
+            String storageBucket,
+            String storageKey,
+            String checksumSha256
+    ) {
+        this(UUID.randomUUID(), userId, originalFileName, contentType, sizeBytes, storageBucket, storageKey, checksumSha256);
+    }
+
+    public DocumentEntity(
+            UUID id,
+            UUID userId,
+            String originalFileName,
+            String contentType,
+            long sizeBytes,
+            String storageBucket,
+            String storageKey,
+            String checksumSha256
+    ) {
+        this.id = id;
         this.userId = userId;
         this.originalFileName = originalFileName;
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;
-        this.storagePath = storagePath;
+        this.storageBucket = storageBucket;
+        this.storageKey = storageKey;
+        this.checksumSha256 = checksumSha256;
         this.status = DocumentStatus.UPLOADED;
     }
 
