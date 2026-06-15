@@ -7,7 +7,7 @@ spring:
     password: ${AI_ANALYSIS_DB_PASSWORD:medic}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     open-in-view: false
   liquibase:
     change-log: classpath:liquibase/changelog/changelog.yml
